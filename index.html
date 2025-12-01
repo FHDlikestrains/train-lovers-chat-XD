@@ -1,206 +1,209 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Ghaster Chat (Cloudflare)</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghaster Chat (Supabase Fixed)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
-  body{background:#0b0b0b;color:#fff;font-family:"Press Start 2P",monospace;margin:0;padding:12px}
-  .panel{max-width:900px;margin:0 auto}
-  .screen{display:none}
-  .screen.active{display:block}
-  input,button,textarea{font-family:inherit;padding:8px;border-radius:6px;border:1px solid #222;background:#111;color:#fff}
-  #chat{height:60vh;overflow:auto;border:1px solid #222;padding:8px;border-radius:6px;background:#050505}
-  .msg{margin:6px 0}
-  .pfp{width:28px;height:28px;border-radius:999px;vertical-align:middle;margin-right:8px}
-  .credits{font-style:italic;font-size:12px;margin-top:8px}
+  body { margin:0; background:#000; color:#fff; font-family:"Press Start 2P", monospace; }
+  #startScreen, #passScreen, #authScreen {
+    display:flex; flex-direction:column;
+    justify-content:center; align-items:center;
+    height:100vh; text-align:center;
+  }
+  #chatScreen { display:none; height:100vh; }
+  #chat { height:75vh; overflow-y:auto; padding:10px; border-bottom:2px solid #fff; }
+  .message { margin:10px 0; }
+  #inputBar { display:flex; gap:10px; padding:10px; }
+  input, button {
+    font-family:"Press Start 2P";
+    background:#111; border:1px solid #fff;
+    color:#fff; padding:10px;
+  }
+  .pfp { width:22px; height:22px; border-radius:50%; vertical-align:middle; margin-right:5px; }
 </style>
 </head>
 <body>
-<div class="panel">
+
+<!-- START SCREEN -->
+<div id="startScreen">
   <h1>Ghaster Chat</h1>
-  <div id="screen-start" class="screen active">
-    <p>group chat made of some extremely unserious and unfunny individuals</p>
-    <button id="btn-continue">Continue</button>
-  </div>
+  <p>group chat made of some extremely unserious and unfunny individuals</p>
+  <button id="startBtn">Continue</button>
+</div>
 
-  <div id="screen-pass" class="screen">
-    <h3>Enter GC Pass</h3>
-    <input id="in-pass" type="password" placeholder="GC pass">
-    <button id="btn-pass">Enter</button>
-    <p id="pass-msg" style="color:#f66"></p>
-  </div>
+<!-- PASS SCREEN -->
+<div id="passScreen" style="display:none;">
+  <h2>Enter GC Pass</h2>
+  <input id="gcPassInput" type="password" placeholder="Password">
+  <button id="gcPassBtn">Enter</button>
+</div>
 
-  <div id="screen-auth" class="screen">
-    <h3>Sign Up / Login</h3>
-    <input id="in-user" placeholder="username"><br><br>
-    <input id="in-passw" type="password" placeholder="password"><br><br>
-    <button id="btn-signup">Sign Up</button>
-    <button id="btn-login">Login</button>
-    <p id="auth-msg" style="color:#f66"></p>
-  </div>
+<!-- AUTH SCREEN -->
+<div id="authScreen" style="display:none;">
+  <h2>Sign Up / Login</h2>
+  <input id="authUsername" placeholder="Username">
+  <input id="authPassword" type="password" placeholder="Password">
+  <button id="signupBtn">Sign Up</button>
+  <button id="authLoginBtn">Login</button>
+</div>
 
-  <div id="screen-chat" class="screen">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div><strong id="me-name">-</strong></div>
-      <div><button id="btn-logout">Logout</button></div>
-    </div>
-    <div id="chat"></div>
+<!-- CHAT SCREEN -->
+<div id="chatScreen">
+  <div id="chat"></div>
 
-    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-      <button id="btn-pfp">Upload PFP</button>
-      <input type="file" id="file-pfp" style="display:none">
-      <button id="btn-file">Send File</button>
-      <input type="file" id="file-attach" style="display:none">
-      <input id="in-msg" placeholder="Type message..." style="flex:1">
-      <button id="btn-send">Send</button>
-    </div>
-    <div class="credits">Made by FHD & ChatGPT</div>
+  <div id="inputBar">
+    <button id="pfpBtn">PFP</button>
+    <input type="file" id="pfpInput" style="display:none">
+
+    <button id="fileBtn">📎</button>
+    <input type="file" id="fileInput" style="display:none">
+
+    <input id="msgInput" placeholder="Message...">
+    <button id="sendBtn">Send</button>
   </div>
 </div>
 
+<div style="text-align:center; padding:10px; font-size:10px; opacity:0.6; font-family:'Press Start 2P';">Made by FHD & ChatGPT</div>
+
+<!-- SUPABASE -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-const API = "https://YOUR_WORKER_URL"; // e.g. https://ghaster-backend.YOUR_SUBDOMAIN.workers.dev
-
-// UI elements
-const screens = {
-  start: document.getElementById('screen-start'),
-  pass: document.getElementById('screen-pass'),
-  auth: document.getElementById('screen-auth'),
-  chat: document.getElementById('screen-chat'),
-};
-function show(name){ Object.values(screens).forEach(s=>s.classList.remove('active')); screens[name].classList.add('active'); }
-
-const btnContinue = document.getElementById('btn-continue');
-const btnPass = document.getElementById('btn-pass');
-const inPass = document.getElementById('in-pass');
-const passMsg = document.getElementById('pass-msg');
-
-const btnSignup = document.getElementById('btn-signup');
-const btnLogin = document.getElementById('btn-login');
-const inUser = document.getElementById('in-user');
-const inPassw = document.getElementById('in-passw');
-const authMsg = document.getElementById('auth-msg');
-
-const btnLogout = document.getElementById('btn-logout');
-const meName = document.getElementById('me-name');
-const chatBox = document.getElementById('chat');
-const btnPFP = document.getElementById('btn-pfp');
-const filePfp = document.getElementById('file-pfp');
-const btnFile = document.getElementById('btn-file');
-const fileAttach = document.getElementById('file-attach');
-const inMsg = document.getElementById('in-msg');
-const btnSend = document.getElementById('btn-send');
+// ---------------- CONFIG ----------------
+// !!! REPLACE THESE WITH REAL VALUES !!!
+const SUPABASE_URL = "REPLACE_URL";
+const SUPABASE_ANON_KEY = "REPLACE_KEY";
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser = null;
-let localPfp = null;
-let lastTs = 0;
+let userPFP = null;
 
-// navigation
-btnContinue.onclick = ()=> show('pass');
+// ELEMENTS
+const startScreen = document.getElementById("startScreen");
+const passScreen = document.getElementById("passScreen");
+const authScreen = document.getElementById("authScreen");
+const chatScreen = document.getElementById("chatScreen");
+const chat = document.getElementById("chat");
 
-// check pass
-btnPass.onclick = async () => {
-  passMsg.textContent = "";
-  const pass = inPass.value.trim();
-  if(!pass) return passMsg.textContent = "Type the pass.";
-  const res = await fetch(API + "/api/checkpass", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify({pass})});
-  const j = await res.json();
-  if(j.ok){ show('auth'); } else { passMsg.textContent = "Wrong pass."; }
+function show(screen){
+  startScreen.style.display = "none";
+  passScreen.style.display = "none";
+  authScreen.style.display = "none";
+  chatScreen.style.display = "none";
+  screen.style.display = screen===chatScreen ? "block" : "flex";
+}
+
+// ---------------- START BUTTON ----------------
+startBtn.onclick = () => show(passScreen);
+
+// ---------------- PASS CHECK ----------------
+gcPassBtn.onclick = async () => {
+  const pass = gcPassInput.value;
+  const { data } = await client.from("config").select().eq("key","gcPass").single();
+  if (!data || data.value !== pass) return alert("Wrong pass");
+  show(authScreen);
 };
 
-// signup
-btnSignup.onclick = async () => {
-  authMsg.textContent = "";
-  const username = inUser.value.trim();
-  const password = inPassw.value;
-  if(!username||!password) return authMsg.textContent = "Fill both fields.";
-  const body = { username, password, pfp: localPfp };
-  const res = await fetch(API + "/api/signup", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify(body)});
-  const j = await res.json();
-  if(j.ok){ currentUser = username; meName.textContent = username; show('chat'); startPolling(); } else { authMsg.textContent = j.error || "Signup failed"; }
+// ---------------- SIGN UP ----------------
+signupBtn.onclick = async () => {
+  const u = authUsername.value.trim();
+  const p = authPassword.value.trim();
+  if(!u || !p) return alert("Fill both fields");
+
+  const { error } = await client.from("users").insert({ username:u, password:p });
+  if(error) return alert("Username taken");
+
+  currentUser = u;
+  show(chatScreen);
+  addMessage(`<em>${u} joined.</em>`);
+  loadMessages();
 };
 
-// login
-btnLogin.onclick = async () => {
-  authMsg.textContent = "";
-  const username = inUser.value.trim();
-  const password = inPassw.value;
-  if(!username||!password) return authMsg.textContent = "Fill both fields.";
-  const res = await fetch(API + "/api/login", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify({username,password})});
-  const j = await res.json();
-  if(j.ok){ currentUser = username; meName.textContent = username; localPfp = (j.user && j.user.pfp) || null; show('chat'); startPolling(); } else { authMsg.textContent = j.error || "Login failed"; }
+// ---------------- LOGIN ----------------
+authLoginBtn.onclick = async () => {
+  const u = authUsername.value.trim();
+  const p = authPassword.value.trim();
+  if(!u || !p) return alert("Fill both fields");
+
+  const { data } = await client.from("users").select().eq("username",u).eq("password",p).single();
+  if(!data) return alert("Wrong info");
+
+  currentUser = u;
+  show(chatScreen);
+  addMessage(`<em>${u} joined.</em>`);
+  loadMessages();
 };
 
-btnLogout.onclick = ()=> { currentUser = null; localPfp = null; inUser.value=''; inPassw.value=''; show('auth'); stopPolling(); }
+// ---------------- ADD MESSAGE ----------------
+function addMessage(html){
+  const div = document.createElement("div");
+  div.className = "message";
+  div.innerHTML = html;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
 
-// upload PFP
-btnPFP.onclick = ()=> filePfp.click();
-filePfp.onchange = async ()=> {
-  const f = filePfp.files[0];
-  if(!f) return;
-  // read as dataURL
+// ---------------- SEND MSG ----------------
+sendBtn.onclick = async () => {
+  const msg = msgInput.value.trim();
+  if(!msg) return;
+
+  await client.from("messages").insert({ username:currentUser, text:msg, pfp:userPFP });
+  msgInput.value = "";
+};
+
+// ---------------- REALTIME ----------------
+client.channel("messages")
+  .on('postgres_changes', { event:'*', schema:'public', table:'messages' }, payload => {
+    const m = payload.new;
+    const pfpHTML = m.pfp ? `<img class='pfp' src='${m.pfp}'>` : "";
+    addMessage(`${pfpHTML}<strong>${m.username}:</strong> ${m.text}`);
+  })
+  .subscribe();
+
+// ---------------- LOAD OLD MESSAGES ----------------
+async function loadMessages(){
+  const { data } = await client.from("messages").select().order("id");
+  chat.innerHTML = "";
+  data.forEach(m => {
+    const pfpHTML = m.pfp ? `<img class='pfp' src='${m.pfp}'>` : "";
+    addMessage(`${pfpHTML}<strong>${m.username}:</strong> ${m.text}`);
+  });
+}
+
+// ---------------- PFP UPLOAD ----------------
+pfpBtn.onclick = () => pfpInput.click();
+
+pfpInput.onchange = async () => {
+  const file = pfpInput.files[0];
   const reader = new FileReader();
-  reader.onload = ()=> { localPfp = reader.result; alert("PFP set (local). After sending a message it will be saved to your profile online if you sign up)."); };
-  reader.readAsDataURL(f);
-};
-
-// send file
-btnFile.onclick = ()=> fileAttach.click();
-fileAttach.onchange = async ()=> {
-  const f = fileAttach.files[0];
-  if(!f) return;
-  if(!currentUser) return alert("Login first.");
-  const reader = new FileReader();
-  reader.onload = async ()=> {
-    const data = reader.result; // dataURL
-    await fetch(API + "/api/post", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify({ username: currentUser, text:"", file:{ name:f.name, type:f.type, data } })});
+  reader.onload = () => {
+    userPFP = reader.result;
+    alert("Profile picture set!");
   };
-  reader.readAsDataURL(f);
+  reader.readAsDataURL(file);
 };
 
-// send text message
-btnSend.onclick = async ()=> {
-  if(!currentUser) return alert("Login first.");
-  const text = inMsg.value.trim();
-  if(!text) return;
-  await fetch(API + "/api/post", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify({ username: currentUser, text })});
-  inMsg.value = "";
-};
+// ---------------- FILE SHARING ----------------
+fileBtn.onclick = () => fileInput.click();
 
-// polling messages
-let pollTimer = null;
-async function pollOnce(){
-  const res = await fetch(API + "/api/messages?since=" + (lastTs || 0));
-  const j = await res.json();
-  if(!j.ok) return;
-  if(j.messages && j.messages.length){
-    j.messages.forEach(m=>{
-      if(m.time <= lastTs) return;
-      lastTs = Math.max(lastTs, m.time);
-      const pfpHTML = m.file && m.file.name ? '' : (m.pfp ? `<img class="pfp" src="${m.pfp}">` : '');
-      const text = m.text ? m.text.replace(/@(\w+)/g, '<b>@$1</b>') : '';
-      // if message includes a file placeholder (we stored links in text) we show it as HTML
-      const messageHtml = `${pfpHTML}<strong>${m.username}:</strong> ${text}`;
-      const div = document.createElement('div');
-      div.className = 'msg';
-      div.innerHTML = messageHtml;
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
+fileInput.onchange = async () => {
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  reader.onload = async () => {
+    await client.from("messages").insert({
+      username: currentUser,
+      text: `<a href='${reader.result}' download='${file.name}'>${file.name}</a>`,
+      pfp: userPFP
     });
-  }
-}
-function startPolling(){
-  if(pollTimer) clearInterval(pollTimer);
-  pollOnce();
-  pollTimer = setInterval(pollOnce, 2000);
-}
-function stopPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer = null; }
-
-// helper: DOM reference for messages container
-const chatBox = document.getElementById('chat');
-
+  };
+  reader.readAsDataURL(file);
+};
 </script>
 </body>
 </html>
+
+
