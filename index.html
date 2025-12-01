@@ -1,238 +1,206 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Train Lovers Chat XD</title>
-
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ghaster Chat (Cloudflare)</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-
-
 <style>
-  body {
-    margin:0;
-    font-family: 'Press Start 2P', cursive;
-    background:#111;
-    color:#eee;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-  }
-  h2 { font-size:14px; }
-  input { margin:5px; padding:5px; width:180px; }
-  button { margin:5px; padding:5px; cursor:pointer; }
-  #chat {
-    border:2px solid #eee;
-    width:90%; max-width:500px;
-    height:400px; overflow-y:auto;
-    padding:5px; margin-top:10px;
-    background:#000;
-  }
-  .message { margin:3px 0; }
-  .username { font-weight:bold; }
-  .pfp {
-    width:20px; height:20px;
-    border-radius:50%;
-    vertical-align:middle;
-    margin-right:5px;
-  }
-  #credits {
-    margin-top:10px;
-    font-size:10px;
-    font-style:italic;
-  }
+  body{background:#0b0b0b;color:#fff;font-family:"Press Start 2P",monospace;margin:0;padding:12px}
+  .panel{max-width:900px;margin:0 auto}
+  .screen{display:none}
+  .screen.active{display:block}
+  input,button,textarea{font-family:inherit;padding:8px;border-radius:6px;border:1px solid #222;background:#111;color:#fff}
+  #chat{height:60vh;overflow:auto;border:1px solid #222;padding:8px;border-radius:6px;background:#050505}
+  .msg{margin:6px 0}
+  .pfp{width:28px;height:28px;border-radius:999px;vertical-align:middle;margin-right:8px}
+  .credits{font-style:italic;font-size:12px;margin-top:8px}
 </style>
 </head>
 <body>
-
-
-<!-- GC PASS -->
-<div id="passContainer">
-  <h2>Enter GC Pass</h2>
-  <input type="password" id="chatPassInput" placeholder="Enter pass">
-  <button id="chatPassBtn">Enter</button>
-</div>
-
-
-<!-- AUTH FORMS -->
-<div id="authContainer" style="display:none;">
-  <div id="signupForm">
-    <h2>Sign Up</h2>
-    <input type="text" id="signupUsername" placeholder="Username">
-    <input type="password" id="signupPassword" placeholder="Password">
-    <button id="signupBtn">Sign Up</button>
-    <p>Already have an account? <button id="loginBtn">I already have one</button></p>
+<div class="panel">
+  <h1>Ghaster Chat</h1>
+  <div id="screen-start" class="screen active">
+    <p>group chat made of some extremely unserious and unfunny individuals</p>
+    <button id="btn-continue">Continue</button>
   </div>
 
+  <div id="screen-pass" class="screen">
+    <h3>Enter GC Pass</h3>
+    <input id="in-pass" type="password" placeholder="GC pass">
+    <button id="btn-pass">Enter</button>
+    <p id="pass-msg" style="color:#f66"></p>
+  </div>
 
-  <div id="loginForm" style="display:none;">
-    <h2>Login</h2>
-    <input type="text" id="loginUsername" placeholder="Username">
-    <input type="password" id="loginPassword" placeholder="Password">
-    <button id="loginSubmitBtn">Login</button>
-    <p>Don't have an account? <button id="backToSignupBtn">Sign Up</button></p>
+  <div id="screen-auth" class="screen">
+    <h3>Sign Up / Login</h3>
+    <input id="in-user" placeholder="username"><br><br>
+    <input id="in-passw" type="password" placeholder="password"><br><br>
+    <button id="btn-signup">Sign Up</button>
+    <button id="btn-login">Login</button>
+    <p id="auth-msg" style="color:#f66"></p>
+  </div>
+
+  <div id="screen-chat" class="screen">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><strong id="me-name">-</strong></div>
+      <div><button id="btn-logout">Logout</button></div>
+    </div>
+    <div id="chat"></div>
+
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <button id="btn-pfp">Upload PFP</button>
+      <input type="file" id="file-pfp" style="display:none">
+      <button id="btn-file">Send File</button>
+      <input type="file" id="file-attach" style="display:none">
+      <input id="in-msg" placeholder="Type message..." style="flex:1">
+      <button id="btn-send">Send</button>
+    </div>
+    <div class="credits">Made by FHD & ChatGPT</div>
   </div>
 </div>
-
-
-<!-- CHAT AREA -->
-<div id="chatContainer" style="display:none;">
-  <div id="chat"></div>
-  <input type="text" id="msgInput" placeholder="Type your message...">
-  <button id="sendBtn">Send</button>
-  <button id="uploadPFPBtn">Upload PFP</button>
-</div>
-
-
-<div id="credits">
-  𝒢𝓇𝑜𝓊𝓅 𝒞𝒽𝒶𝓉 𝑀𝒶𝒹𝑒 𝑜𝒻 𝒮𝑜𝓂𝑒 𝐸𝓍𝓉𝓇𝑒𝓂𝑒𝓁𝓎 𝒰𝓃𝓈𝑒𝓇𝒾𝑜𝓊𝓈 𝒶𝓃𝒹 𝒰𝓃𝒻𝓊𝓃𝓃𝓎 𝐼𝓃𝒹𝒾𝓋𝒾𝒹𝓊𝒶𝓁𝓈
-</div>
-
 
 <script>
-let username = '';
-let userPFP = null;
+const API = "https://YOUR_WORKER_URL"; // e.g. https://ghaster-backend.YOUR_SUBDOMAIN.workers.dev
 
-
-// ====== GC PASS (HIDDEN VERSION) ======
-const encodedGCpass = "RkhEIGxpa2VzIHV2b3I="; // "FHD likes uvor"
-const correctPass = atob(encodedGCpass);
-
-
-document.getElementById('chatPassBtn').addEventListener('click', () => {
-  const inputPass = document.getElementById('chatPassInput').value.trim();
-
-
-  if(inputPass === correctPass){
-    document.getElementById('passContainer').style.display = 'none';
-    document.getElementById('authContainer').style.display = 'block';
-  } else {
-    alert("Wrong GC Pass!");
-  }
-});
-
-
-// ====== AUTH FORMS ======
-const signupForm = document.getElementById('signupForm');
-const loginForm = document.getElementById('loginForm');
-
-
-document.getElementById('loginBtn').onclick = () => {
-  signupForm.style.display = 'none';
-  loginForm.style.display = 'block';
+// UI elements
+const screens = {
+  start: document.getElementById('screen-start'),
+  pass: document.getElementById('screen-pass'),
+  auth: document.getElementById('screen-auth'),
+  chat: document.getElementById('screen-chat'),
 };
-document.getElementById('backToSignupBtn').onclick = () => {
-  loginForm.style.display = 'none';
-  signupForm.style.display = 'block';
-};
+function show(name){ Object.values(screens).forEach(s=>s.classList.remove('active')); screens[name].classList.add('active'); }
 
+const btnContinue = document.getElementById('btn-continue');
+const btnPass = document.getElementById('btn-pass');
+const inPass = document.getElementById('in-pass');
+const passMsg = document.getElementById('pass-msg');
 
-// ====== SIGNUP ======
-document.getElementById('signupBtn').onclick = () => {
-  const user = document.getElementById('signupUsername').value;
-  const pass = document.getElementById('signupPassword').value;
-  if(!user || !pass) return alert("Fill both fields");
+const btnSignup = document.getElementById('btn-signup');
+const btnLogin = document.getElementById('btn-login');
+const inUser = document.getElementById('in-user');
+const inPassw = document.getElementById('in-passw');
+const authMsg = document.getElementById('auth-msg');
 
+const btnLogout = document.getElementById('btn-logout');
+const meName = document.getElementById('me-name');
+const chatBox = document.getElementById('chat');
+const btnPFP = document.getElementById('btn-pfp');
+const filePfp = document.getElementById('file-pfp');
+const btnFile = document.getElementById('btn-file');
+const fileAttach = document.getElementById('file-attach');
+const inMsg = document.getElementById('in-msg');
+const btnSend = document.getElementById('btn-send');
 
-  localStorage.setItem("user_"+user, pass);
-  alert("Signed up!");
-  username = user;
-  showChat();
-};
+let currentUser = null;
+let localPfp = null;
+let lastTs = 0;
 
+// navigation
+btnContinue.onclick = ()=> show('pass');
 
-// ====== LOGIN ======
-document.getElementById('loginSubmitBtn').onclick = () => {
-  const user = document.getElementById('loginUsername').value;
-  const pass = document.getElementById('loginPassword').value;
-
-
-  const stored = localStorage.getItem("user_"+user);
-  if(stored === pass){
-    username = user;
-    showChat();
-  } else {
-    alert("Wrong username or password!");
-  }
+// check pass
+btnPass.onclick = async () => {
+  passMsg.textContent = "";
+  const pass = inPass.value.trim();
+  if(!pass) return passMsg.textContent = "Type the pass.";
+  const res = await fetch(API + "/api/checkpass", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify({pass})});
+  const j = await res.json();
+  if(j.ok){ show('auth'); } else { passMsg.textContent = "Wrong pass."; }
 };
 
+// signup
+btnSignup.onclick = async () => {
+  authMsg.textContent = "";
+  const username = inUser.value.trim();
+  const password = inPassw.value;
+  if(!username||!password) return authMsg.textContent = "Fill both fields.";
+  const body = { username, password, pfp: localPfp };
+  const res = await fetch(API + "/api/signup", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify(body)});
+  const j = await res.json();
+  if(j.ok){ currentUser = username; meName.textContent = username; show('chat'); startPolling(); } else { authMsg.textContent = j.error || "Signup failed"; }
+};
 
-// ====== SHOW CHAT ======
-function showChat(){
-  document.getElementById('authContainer').style.display = 'none';
-  document.getElementById('chatContainer').style.display = 'block';
-}
+// login
+btnLogin.onclick = async () => {
+  authMsg.textContent = "";
+  const username = inUser.value.trim();
+  const password = inPassw.value;
+  if(!username||!password) return authMsg.textContent = "Fill both fields.";
+  const res = await fetch(API + "/api/login", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify({username,password})});
+  const j = await res.json();
+  if(j.ok){ currentUser = username; meName.textContent = username; localPfp = (j.user && j.user.pfp) || null; show('chat'); startPolling(); } else { authMsg.textContent = j.error || "Login failed"; }
+};
 
+btnLogout.onclick = ()=> { currentUser = null; localPfp = null; inUser.value=''; inPassw.value=''; show('auth'); stopPolling(); }
 
-// ====== PFP ======
-document.getElementById('uploadPFPBtn').onclick = () => {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = "image/*";
-  input.onchange = e => {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = ev => {
-      userPFP = ev.target.result;
-      alert("PFP uploaded!");
-    };
-    reader.readAsDataURL(file);
+// upload PFP
+btnPFP.onclick = ()=> filePfp.click();
+filePfp.onchange = async ()=> {
+  const f = filePfp.files[0];
+  if(!f) return;
+  // read as dataURL
+  const reader = new FileReader();
+  reader.onload = ()=> { localPfp = reader.result; alert("PFP set (local). After sending a message it will be saved to your profile online if you sign up)."); };
+  reader.readAsDataURL(f);
+};
+
+// send file
+btnFile.onclick = ()=> fileAttach.click();
+fileAttach.onchange = async ()=> {
+  const f = fileAttach.files[0];
+  if(!f) return;
+  if(!currentUser) return alert("Login first.");
+  const reader = new FileReader();
+  reader.onload = async ()=> {
+    const data = reader.result; // dataURL
+    await fetch(API + "/api/post", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify({ username: currentUser, text:"", file:{ name:f.name, type:f.type, data } })});
   };
-  input.click();
+  reader.readAsDataURL(f);
 };
 
-
-// ====== SEND MESSAGE ======
-const msgInput = document.getElementById('msgInput');
-document.getElementById('sendBtn').onclick = sendMsg;
-msgInput.addEventListener("keydown", e => {
-  if(e.key === "Enter") sendMsg();
-});
-
-
-function sendMsg(){
-  const text = msgInput.value.trim();
+// send text message
+btnSend.onclick = async ()=> {
+  if(!currentUser) return alert("Login first.");
+  const text = inMsg.value.trim();
   if(!text) return;
+  await fetch(API + "/api/post", {method:"POST", headers:{'content-type':'application/json'}, body:JSON.stringify({ username: currentUser, text })});
+  inMsg.value = "";
+};
 
-
-  const chat = document.getElementById('chat');
-
-
-  const div = document.createElement('div');
-  div.className = "message";
-
-
-  let html = "";
-  if(userPFP) html += `<img src="${userPFP}" class="pfp">`;
-  html += `<span class="username">${username}:</span> `;
-  html += text.replace(/@(\w+)/g, "<b>@$1</b>");
-
-
-  div.innerHTML = html;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-
-
-  msgInput.value = "";
-  beep();
+// polling messages
+let pollTimer = null;
+async function pollOnce(){
+  const res = await fetch(API + "/api/messages?since=" + (lastTs || 0));
+  const j = await res.json();
+  if(!j.ok) return;
+  if(j.messages && j.messages.length){
+    j.messages.forEach(m=>{
+      if(m.time <= lastTs) return;
+      lastTs = Math.max(lastTs, m.time);
+      const pfpHTML = m.file && m.file.name ? '' : (m.pfp ? `<img class="pfp" src="${m.pfp}">` : '');
+      const text = m.text ? m.text.replace(/@(\w+)/g, '<b>@$1</b>') : '';
+      // if message includes a file placeholder (we stored links in text) we show it as HTML
+      const messageHtml = `${pfpHTML}<strong>${m.username}:</strong> ${text}`;
+      const div = document.createElement('div');
+      div.className = 'msg';
+      div.innerHTML = messageHtml;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+  }
 }
-
-
-// ====== BEEP ======
-function beep(){
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const osc = ctx.createOscillator();
-  osc.type = "square";
-  osc.frequency.setValueAtTime(440, ctx.currentTime);
-  osc.connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime + 0.1);
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollOnce();
+  pollTimer = setInterval(pollOnce, 2000);
 }
+function stopPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+// helper: DOM reference for messages container
+const chatBox = document.getElementById('chat');
+
 </script>
-
-
 </body>
 </html>
