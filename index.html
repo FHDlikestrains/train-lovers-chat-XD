@@ -1,0 +1,415 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Ghaster Chat — Debug Friendly</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#000;--muted:#999;--accent:#7fd1ff}
+  body{background:var(--bg);color:#fff;font-family:"Press Start 2P",monospace;margin:0;padding:12px}
+  .panel{max-width:900px;margin:0 auto}
+  .row{display:flex;gap:8px;align-items:center}
+  button,input{font-family:inherit;padding:8px;border-radius:6px;border:1px solid #333;background:#111;color:#fff}
+  .screen{display:none;margin-top:8px}
+  .active{display:block}
+  #chat{height:55vh;overflow:auto;border:1px solid #222;padding:8px;border-radius:8px;background:#050505}
+  .msg{margin:6px 0}
+  .pfp{width:28px;height:28px;border-radius:999px;vertical-align:middle;margin-right:8px}
+  .status{font-size:12px;color:var(--muted);margin-top:6px}
+  .error{color:#ff6666}
+  .ok{color:#7bff9a}
+  .credits{font-style:italic;font-size:12px;margin-top:8px}
+  .note{font-size:11px;color:var(--muted)}
+  a.filelink{color:var(--accent); text-decoration:none}
+  .topbar{display:flex;justify-content:space-between;align-items:center}
+  .small{font-size:12px}
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="topbar">
+    <h1 style="margin:0">Ghaster Chat</h1>
+    <div class="small">Made by FHD </div>
+  </div>
+
+
+  <div id="statusBox" class="status">STATUS: initializing...</div>
+
+
+  <!-- Start -->
+  <div id="start" class="screen active">
+    <p class="note">group chat made of some extremely unserious and unfunny individuals</p>
+    <button id="btnContinue">Continue</button>
+  </div>
+
+
+  <!-- Pass -->
+  <div id="pass" class="screen">
+    <h3>Enter GC Pass</h3>
+    <div class="row"><input id="inputPass" type="password" placeholder="GC pass"><button id="btnPass">Enter</button></div>
+    <div id="passMsg" class="status"></div>
+  </div>
+
+
+  <!-- Auth -->
+  <div id="auth" class="screen">
+    <h3>Sign Up / Login</h3>
+    <div class="row" style="flex-direction:column;align-items:stretch;max-width:480px">
+      <input id="inputUser" placeholder="username">
+      <input id="inputPw" type="password" placeholder="password">
+      <div style="display:flex;gap:8px">
+        <button id="btnSignup">Sign Up</button>
+        <button id="btnLogin">Login</button>
+      </div>
+      <div id="authMsg" class="status"></div>
+    </div>
+  </div>
+
+
+  <!-- Chat -->
+  <div id="chatScreen" class="screen">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div><strong id="meName">—</strong></div>
+      <div><button id="btnLogout">Logout</button></div>
+    </div>
+
+
+    <div id="chat"></div>
+
+
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <button id="btnPfp">Upload PFP</button>
+      <input type="file" id="inpPfp" style="display:none">
+      <button id="btnFile">Send File</button>
+      <input type="file" id="inpFile" style="display:none">
+      <input id="inpMsg" placeholder="Type message..." style="flex:1">
+      <button id="btnSend">Send</button>
+    </div>
+    <div class="note">Tip: bold @username mentions are supported.</div>
+  </div>
+
+
+  <div class="credits">Made by FHD — host on GitHub Pages for HTTPS</div>
+</div>
+
+
+<!-- Supabase UMD which exposes global `supabase` -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+
+<script>
+/*
+  Debug-friendly single-file chat:
+  - Replace SUPABASE_URL / KEY to enable real DB.
+  - If not replaced, page runs in local fallback mode so buttons + UI always work.
+  - Shows STATUS box with clear reasons when something fails.
+*/
+
+
+(async function(){
+  const STATUS = document.getElementById('statusBox');
+  function setStatus(text, level){ STATUS.textContent = 'STATUS: ' + text; STATUS.className = 'status ' + (level||''); console.log('[STATUS]', text); }
+
+
+  // ---------- CONFIG ----------
+  // If you want real online chat, replace these two with your Supabase project values.
+  const SUPABASE_URL = "REPLACE_WITH_SUPABASE_URL";
+  const SUPABASE_ANON_KEY = "REPLACE_WITH_SUPABASE_ANON_KEY";
+
+
+  // local fallback mode if config not set
+  const useSupabase = SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.startsWith('REPLACE');
+  setStatus(useSupabase ? 'Supabase config present — initialising client' : 'Supabase config missing — running LOCAL fallback mode');
+
+
+  // create client only if config provided
+  let sb = null;
+  if(useSupabase){
+    try{
+      sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      setStatus('Supabase client created. If DB operations fail, check console and browser network tab.');
+    }catch(e){
+      console.error(e);
+      setStatus('Supabase init error — falling back to LOCAL mode', 'error');
+    }
+  }
+
+
+  // ---------- DOM helpers & screens ----------
+  const start = document.getElementById('start');
+  const pass = document.getElementById('pass');
+  const auth = document.getElementById('auth');
+  const chatScreen = document.getElementById('chatScreen');
+  const show = (el)=> {
+    [start, pass, auth, chatScreen].forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+  };
+
+
+  // elements
+  const btnContinue = document.getElementById('btnContinue');
+  const btnPass = document.getElementById('btnPass');
+  const inputPass = document.getElementById('inputPass');
+  const passMsg = document.getElementById('passMsg');
+
+
+  const inputUser = document.getElementById('inputUser');
+  const inputPw = document.getElementById('inputPw');
+  const btnSignup = document.getElementById('btnSignup');
+  const btnLogin = document.getElementById('btnLogin');
+  const authMsg = document.getElementById('authMsg');
+
+
+  const meName = document.getElementById('meName');
+  const btnLogout = document.getElementById('btnLogout');
+  const chatBox = document.getElementById('chat');
+  const btnPfp = document.getElementById('btnPfp');
+  const inpPfp = document.getElementById('inpPfp');
+  const btnFile = document.getElementById('btnFile');
+  const inpFile = document.getElementById('inpFile');
+  const inpMsg = document.getElementById('inpMsg');
+  const btnSend = document.getElementById('btnSend');
+
+
+  // state
+  let currentUser = null;
+  let userPfp = null;
+  let localMessages = []; // fallback storage
+  let pollTimer = null;
+  let lastTs = 0;
+
+
+  // debug helper - prints a friendly error, shows it on page, and logs details
+  function failUI(msg, err){
+    console.error(msg, err);
+    setStatus(msg, 'error');
+    if(err) console.error(err);
+  }
+
+
+  // safe HTML escape
+  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+
+  // add message to chat UI
+  function renderMessage(m){
+    const div = document.createElement('div');
+    div.className = 'msg';
+    const pfpHtml = m.pfp ? `<img class="pfp" src="${escapeHtml(m.pfp)}">` : '';
+    // treat m.text as HTML intentionally for file links inserted by server; escape otherwise
+    const text = (m.text || '').replace(/@(\w+)/g, '<b>@$1</b>');
+    div.innerHTML = `${pfpHtml}<strong>${escapeHtml(m.username)}:</strong> ${text}`;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+
+  // ---------------- SCREEN NAV ----------------
+  btnContinue.onclick = ()=> show(pass);
+
+
+  // GC Pass check (server if available, else local check)
+  btnPass.onclick = async ()=>{
+    passMsg.textContent = '';
+    const passVal = inputPass.value.trim();
+    if(!passVal) return passMsg.textContent = 'Type the pass';
+    if(useSupabase && sb){
+      setStatus('Checking pass with server...');
+      try{
+        // read config table for key=gcPass — assumes you created config table with {key, value}
+        const { data, error } = await sb.from('config').select().eq('key','gcPass').maybeSingle();
+        if(error) { throw error; }
+        if(!data || data.value !== passVal) { passMsg.textContent = 'Wrong pass'; setStatus('Wrong pass', 'error'); return; }
+        setStatus('Pass OK — continue to auth');
+        show(auth);
+      }catch(err){ failUI('Error checking pass against Supabase — see console', err); }
+    } else {
+      // local hidden pass (same as before) — encoded version: "RkhEIGxpa2VzIHV2b3I=" -> FHD likes uvor
+      const real = atob('RkhEIGxpa2VzIHV2b3I=');
+      if(passVal === real){ setStatus('Local pass OK — auth'); show(auth); }
+      else { passMsg.textContent = 'Wrong pass'; setStatus('Wrong local pass', 'error'); }
+    }
+  };
+
+
+  // SIGNUP
+  btnSignup.onclick = async () => {
+    authMsg.textContent = '';
+    const u = inputUser.value.trim();
+    const p = inputPw.value;
+    if(!u||!p) return authMsg.textContent='Fill both fields';
+    if(useSupabase && sb){
+      setStatus('Signing up with Supabase...');
+      try{
+        const { error } = await sb.from('users').insert({ username:u, password:p });
+        if(error){ authMsg.textContent = error.message || 'Signup failed'; setStatus('Signup error', 'error'); return; }
+        currentUser = u; meName.textContent = u; setStatus('Signed up — loading chat'); show(chatScreen); loadMessages(); startPolling();
+      }catch(err){ failUI('Signup failed', err); }
+    } else {
+      // local store in localStorage
+      const key = 'user_'+u;
+      if(localStorage.getItem(key)){ authMsg.textContent = 'Username taken (local)'; return; }
+      localStorage.setItem(key, p);
+      currentUser = u; meName.textContent = u; setStatus('Signed up (local)'); show(chatScreen); loadLocalMessages(); startPolling();
+    }
+  };
+
+
+  // LOGIN
+  btnLogin.onclick = async ()=>{
+    authMsg.textContent = '';
+    const u = inputUser.value.trim();
+    const p = inputPw.value;
+    if(!u||!p) return authMsg.textContent='Fill both fields';
+    if(useSupabase && sb){
+      setStatus('Logging in via Supabase...');
+      try{
+        const { data, error } = await sb.from('users').select().eq('username',u).eq('password',p).maybeSingle();
+        if(error) throw error;
+        if(!data){ authMsg.textContent='Wrong info'; setStatus('Wrong login', 'error'); return; }
+        currentUser = u; meName.textContent = u; setStatus('Logged in'); show(chatScreen); loadMessages(); startPolling();
+      }catch(err){ failUI('Login failed', err); }
+    } else {
+      const key = 'user_'+u;
+      const stored = localStorage.getItem(key);
+      if(stored !== p){ authMsg.textContent='Wrong info (local)'; return; }
+      currentUser = u; meName.textContent = u; setStatus('Logged in (local)'); show(chatScreen); loadLocalMessages(); startPolling();
+    }
+  };
+
+
+  btnLogout.onclick = ()=> {
+    currentUser = null; userPfp = null; inputUser.value=''; inputPw.value=''; show(auth); stopPolling(); setStatus('Logged out');
+  };
+
+
+  // PFP upload - stores base64 in user profile (only in Supabase if configured; otherwise local session)
+  btnPfp.onclick = ()=> inpPfp.click();
+  inpPfp.onchange = async ()=>{
+    const f = inpPfp.files[0];
+    if(!f) return alert('No file');
+    const reader = new FileReader();
+    reader.onload = async ()=> {
+      userPfp = reader.result;
+      alert('PFP set (will attach to future messages)');
+      if(useSupabase && sb && currentUser){
+        try{
+          await sb.from('users').update({ pfp: userPfp }).eq('username', currentUser);
+          setStatus('PFP saved to server');
+        }catch(e){ console.error(e); setStatus('Failed to save PFP to server', 'error'); }
+      }
+    };
+    reader.readAsDataURL(f);
+  };
+
+
+  // FILE attach (sends a message with embedded dataURL link)
+  btnFile.onclick = ()=> inpFile.click();
+  inpFile.onchange = async ()=>{
+    const f = inpFile.files[0];
+    if(!f) return;
+    if(!currentUser) return alert('Login first');
+    const reader = new FileReader();
+    reader.onload = async ()=> {
+      const data = reader.result;
+      const text = `<a class="filelink" href="${data}" download="${escapeHtml(f.name)}">${escapeHtml(f.name)}</a>`;
+      if(useSupabase && sb){
+        try{
+          await sb.from('messages').insert({ username: currentUser, text, pfp: userPfp });
+        }catch(e){ failUI('File send failed', e); }
+      } else {
+        saveLocalMessage({ username: currentUser, text, pfp: userPfp, time: Date.now() });
+        renderMessage({ username: currentUser, text, pfp: userPfp });
+      }
+    };
+    reader.readAsDataURL(f);
+  };
+
+
+  // Send text message
+  btnSend.onclick = async ()=>{
+    if(!currentUser) return alert('Login first');
+    const t = inpMsg.value.trim();
+    if(!t) return;
+    if(useSupabase && sb){
+      try{
+        await sb.from('messages').insert({ username: currentUser, text: t, pfp: userPfp });
+      }catch(e){ failUI('Send failed', e); }
+    } else {
+      const msg = { username: currentUser, text: escapeHtml(t), pfp: userPfp, time: Date.now() };
+      saveLocalMessage(msg);
+      renderMessage(msg);
+    }
+    inpMsg.value = '';
+  };
+
+
+  // Press Enter to send
+  inpMsg.addEventListener('keydown', e=> { if(e.key==='Enter') btnSend.click(); });
+
+
+  // ---------------- Local message store helpers ----------------
+  function saveLocalMessage(msg){
+    localMessages.push(msg);
+    try{ localStorage.setItem('gh_messages', JSON.stringify(localMessages)); }catch(e){ console.warn('localStorage full?'); }
+  }
+  function loadLocalMessages(){
+    const raw = localStorage.getItem('gh_messages');
+    localMessages = raw ? JSON.parse(raw) : [];
+    chatBox.innerHTML = '';
+    localMessages.forEach(m=> renderMessage(m));
+  }
+
+
+  // ---------------- Load messages from Supabase ----------------
+  async function loadMessages(){
+    if(!useSupabase || !sb) return;
+    try{
+      const { data, error } = await sb.from('messages').select().order('time', {ascending:true});
+      if(error) throw error;
+      chatBox.innerHTML = '';
+      data.forEach(m => renderMessage(m));
+      setStatus('Loaded messages from server');
+    }catch(err){ failUI('Failed to load messages', err); }
+  }
+
+
+  // ---------------- Realtime subscription (Supabase) ----------------
+  if(useSupabase && sb){
+    try{
+      sb.channel('ch')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, payload=>{
+          const m = payload.new;
+          renderMessage(m);
+        })
+        .subscribe()
+        .then(()=> setStatus('Realtime subscribed'));
+    }catch(e){
+      console.warn('Realtime subscribe failed', e);
+    }
+  }
+
+
+  // ---------------- Polling fallback for local mode ----------------
+  function startPolling(){
+    stopPolling();
+    if(!useSupabase) { pollTimer = setInterval(()=>{/* no-op for local — messages render immediately */}, 2000); }
+  }
+  function stopPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer=null; }
+
+
+  // initial load
+  if(useSupabase && sb) {
+    try{ await loadMessages(); }catch(e){ console.warn(e); }
+  } else {
+    loadLocalMessages();
+  }
+
+
+  // final status
+  setStatus(useSupabase ? 'Ready (Supabase mode)' : 'Ready (LOCAL fallback mode). Replace SUPABASE keys to go online.');
+})();
+</script>
+</body>
+</html>
